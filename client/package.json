@@ -10,11 +10,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
-       "@monaco-editor/react": "^4.7.0",
+    "@monaco-editor/react": "^4.7.0",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "y-monaco": "^0.1.6",
+    "y-websocket": "^3.1.0",
+    "yjs": "^13.6.33"
   },
-   "overrides": {
+  "overrides": {
     "dompurify": "^3.4.17"
   },
   "devDependencies": {

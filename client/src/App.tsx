@@ -1,24 +1,29 @@
-import { useEffect, useRef, useState } from "react";
-import Editor from "@monaco-editor/react";
+import { useRef, useState } from "react";
+import Editor, { type OnMount } from "@monaco-editor/react";
+import * as Y from "yjs";
+import { WebsocketProvider } from "y-websocket";
+import { MonacoBinding } from "y-monaco";
 
 export default function App() {
   const [language, setLanguage] = useState("javascript");
-  const [code, setCode] = useState("// start coding");
-  const wsRef = useRef<WebSocket | null>(null);
+  const providerRef = useRef<WebsocketProvider | null>(null);
+  const bindingRef = useRef<MonacoBinding | null>(null);
 
-  useEffect(() => {
-    const ws = new WebSocket("ws://localhost:8080");
-    wsRef.current = ws;
-    ws.onmessage = (e) => setCode(e.data);
-    return () => ws.close();
-  }, []);
+  const handleMount: OnMount = (editor) => {
+    bindingRef.current?.destroy();
+    providerRef.current?.destroy();
 
-  const handleChange = (value: string | undefined) => {
-    const text = value ?? "";
-    setCode(text);
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(text);
-    }
+    const ydoc = new Y.Doc();
+    const provider = new WebsocketProvider("ws://localhost:1234", "room-1", ydoc);
+    const ytext = ydoc.getText("monaco");
+
+    bindingRef.current = new MonacoBinding(
+      ytext,
+      editor.getModel()!,
+      new Set([editor]),
+      provider.awareness
+    );
+    providerRef.current = provider;
   };
 
   return (
@@ -29,13 +34,7 @@ export default function App() {
         <option value="cpp">C++</option>
       </select>
 
-      <Editor
-        height="90vh"
-        language={language}
-        value={code}
-        theme="vs-dark"
-        onChange={handleChange}
-      />
+      <Editor height="90vh" language={language} theme="vs-dark" onMount={handleMount} />
     </div>
   );
 }
