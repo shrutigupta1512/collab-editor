@@ -5,15 +5,37 @@ import { WebsocketProvider } from "y-websocket";
 import { MonacoBinding } from "y-monaco";
 
 const COLORS = ["#e6194b", "#3cb44b", "#4363d8", "#f58231", "#911eb4", "#008080"];
+const ROOM_RE = /^[a-z0-9-]{3,40}$/i;
 
 function cleanName(name: string) {
   return name.replace(/[^\w ]/g, "").slice(0, 20) || "Guest";
 }
 
-export default function App() {
+function getRoom(): string | null {
+  const r = new URLSearchParams(window.location.search).get("room");
+  return r && ROOM_RE.test(r) ? r : null;
+}
+
+function Landing() {
+  const create = () => {
+    const id = crypto.randomUUID().slice(0, 8);
+    window.location.search = `?room=${id}`;
+  };
+
+  return (
+    <div style={{ padding: 40, fontFamily: "sans-serif", color: "#ddd" }}>
+      <h1>Collab Editor</h1>
+      <p>Start a room and share the link with a friend.</p>
+      <button onClick={create}>Create room</button>
+    </div>
+  );
+}
+
+function Room({ room }: { room: string }) {
   const [language, setLanguage] = useState("javascript");
   const [name, setName] = useState(() => "Guest" + Math.floor(100 + Math.random() * 900));
   const [color] = useState(() => COLORS[Math.floor(Math.random() * COLORS.length)]);
+  const [copied, setCopied] = useState(false);
 
   const providerRef = useRef<WebsocketProvider | null>(null);
   const bindingRef = useRef<MonacoBinding | null>(null);
@@ -26,13 +48,23 @@ export default function App() {
     });
   };
 
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      window.prompt("Copy this link:", window.location.href);
+    }
+  };
+
   const handleMount: OnMount = (editor) => {
     bindingRef.current?.destroy();
     providerRef.current?.destroy();
     styleRef.current?.remove();
 
     const ydoc = new Y.Doc();
-    const provider = new WebsocketProvider("ws://localhost:1234", "room-1", ydoc);
+    const provider = new WebsocketProvider("ws://localhost:1234", room, ydoc);
     const ytext = ydoc.getText("monaco");
     providerRef.current = provider;
     publishUser(name);
@@ -86,8 +118,14 @@ export default function App() {
           publishUser(e.target.value);
         }}
       />
+      <button onClick={copyLink}>{copied ? "Copied!" : "Copy link"}</button>
 
       <Editor height="90vh" language={language} theme="vs-dark" onMount={handleMount} />
     </div>
   );
+}
+
+export default function App() {
+  const room = getRoom();
+  return room ? <Room room={room} /> : <Landing />;
 }
